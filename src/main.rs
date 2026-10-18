@@ -1,5 +1,6 @@
 use regex::Regex;
 use std::collections::HashMap;
+use std::fmt::format;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Write};
 use std::ops::ControlFlow;
@@ -21,11 +22,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (_, line) in reader.lines().enumerate() {
         let line = line?.clone();
         let tmp_vl = line.split_whitespace().collect::<Vec<&str>>().to_vec();
-        if tmp_vl.len() >= 2 {
-            let mut hsmp = HashMap::new();
-            hsmp.insert(id, format!("{}/{}", tmp_vl[1].to_string(), tmp_vl[2].to_string()));
-            initial_storage.insert(Operation::Operation::new(id, ParserEnum::ParserEnum::SET), &hsmp);
-            id+=1;
+        if tmp_vl.len() >= 2 && !tmp_vl[0].eq("GET") {
+            if tmp_vl[0].eq("DELETE"){
+                let _ = initial_storage.delete_value(tmp_vl[1]);
+            }
+            else {
+                let mut hsmp = HashMap::new();
+                hsmp.insert(id, format!("{}/{}", tmp_vl[1].to_string(), tmp_vl[2].to_string()));
+                initial_storage.insert(Operation::Operation::new(id, ParserEnum::ParserEnum::SET), &hsmp);
+                id += 1;
+            }
         }
     }
 
@@ -50,8 +56,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut it = 0;
 
-            if op.to_ascii_uppercase().contains("SET")
-                || op.to_ascii_uppercase().contains("GET"){
+            if     op.to_ascii_uppercase().contains("SET")
+                || op.to_ascii_uppercase().contains("GET")
+                || op.to_ascii_uppercase().contains("DELETE") {
                 acc+=1
             }
 
@@ -90,7 +97,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 hsmp.insert(id, format!("{}/{}", instrucoes[1].to_string(), instrucoes[2].to_string()));
 
-                //introduzir validação para garantir que não haja conteudo duplicado no hashmap
+                //introduzir validação para garantir que não haja conteudo duplicado no hashmap (julgar necessidade)
 
                 initial_storage.insert(Operation::Operation::new(id, ParserEnum::ParserEnum::SET), &hsmp);
                 file.write(format!("SET {} {}\n", instrucoes[1], instrucoes[2]).as_bytes())?;
@@ -124,6 +131,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     continue;
                 }
                 //--seção de leitura para producao de novos dados por conferencia
+            }
+            "GET" => {
+                let content = initial_storage.mount_value_for_get_operation(instrucoes[1]);
+                if content.is_some(){
+                    println!("value is fetched: {:?}", content.clone().unwrap());
+                    file.write(format!("GET {} {}\n", instrucoes[1], content.unwrap().split("/").nth(1).unwrap()).as_bytes())?;
+                }
+            }
+            "DELETE" => {
+                let success = initial_storage.delete_value(instrucoes[1]);
+                if success.is_some(){
+                    println!("Registry deleted: {:?}", success.clone().unwrap());
+                    file.write(format!("DELETE {} {}\n", instrucoes[1], success.unwrap().split("/").nth(1).unwrap()).as_bytes())?;
+                }
             }
             _ => {}
         }

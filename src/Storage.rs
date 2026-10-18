@@ -51,4 +51,45 @@ impl Storage{
         
     }
 
+    pub fn mount_value_for_get_operation(&self, value: &str) -> Option<String> {
+
+        //melhor caso de O(1)
+        let raw_values = self.KvMap.values()
+            .map(|f| f.values())
+            .flatten().collect::<Vec<&String>>();
+
+        for i in raw_values {
+            if i.split("/").nth(0)?.contains(value){
+                return Some(i.clone());
+            }
+        }
+        None
+    }
+
+    pub fn delete_value(&mut self, value: &str) -> Option<String> {
+
+        let mut content = String::new();
+        let mut id_for_delete = 0;
+        let raw_values = self.KvMap.values()
+            .map(|f| f.iter())
+            .flatten().collect::<Vec<(&u32, &String)>>();
+
+        for i in raw_values {
+            if i.1.contains(value){
+                id_for_delete = *i.0;
+                content.push_str(format!("{}/{}", i.1.split("/").nth(0).unwrap(), i.1.split("/").nth(1).unwrap()).as_str());
+                break;
+            }
+        }
+
+        if id_for_delete != 0 {
+            self.KvMap.retain(|f, _| f.actual_id() != id_for_delete);
+            return Some(content)
+        }
+
+        None
+
+
+    }
+
 }

@@ -1,4 +1,6 @@
 SET fomo 123
 SET data 55
-SET data 999
 SET mmg 223
+GET mmg 223
+DELETE data 55
+GET fomo 123
