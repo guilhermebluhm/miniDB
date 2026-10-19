@@ -1,13 +1,12 @@
-use regex::Regex;
 use std::collections::HashMap;
-use std::fmt::format;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Write};
-use std::ops::ControlFlow;
 
 mod ParserEnum;
 mod Storage;
 mod Operation;
+mod Command;
+mod TypeErrorCommand;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 
@@ -36,48 +35,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     while true {
+        println!("Storage engine. Supported operations: [GET;SET;DELETE]");
         let mut comando = String::new();
         let _ = std::io::stdin().read_line(&mut comando);
         comando = comando.trim().to_string();
 
-        let re = Regex::new(r"[^\p{L}\p{N}]+").unwrap();
-        comando = re.replace_all(comando.as_str(), " ").to_string();
-
-        let instrucoes = comando
-            .split_whitespace().into_iter()
-            .collect::<Vec<&str>>();
-
-        if instrucoes.len() <= 2 {
-            println!("invalid instruction length {}", instrucoes.len());
+        let parser_data = Command::ParseCommand(&mut comando);
+        if parser_data.is_err() {
+            println!("Failed for this operation because: {:?}", parser_data.unwrap_err());
             continue;
         }
 
-        let d = instrucoes.to_vec().iter().try_fold(0, |mut acc, op|{
-
-            let mut it = 0;
-
-            if     op.to_ascii_uppercase().contains("SET")
-                || op.to_ascii_uppercase().contains("GET")
-                || op.to_ascii_uppercase().contains("DELETE") {
-                acc+=1
-            }
-
-            if it == 0 && acc == 1 {
-                return ControlFlow::Break(acc);
-            }
-            else{
-                it+=1;
-                return ControlFlow::Continue(99);
-            }
-        });
-
-        if d.continue_value().unwrap_or(0) == 99 {
-            println!("invalid position and/or operation");
-            continue;
-        }
-
-        match instrucoes.get(0).unwrap().to_ascii_uppercase().as_ref() {
-            "SET" => {
+        match parser_data.unwrap() {
+            Command::Command::SET {key, value} => {
 
                 let mut new_value_for_hsmp = String::new();
                 let mut oprc = &Operation::Operation::new_with_empty_values();
@@ -95,12 +65,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     id+=1;
                 }
 
-                hsmp.insert(id, format!("{}/{}", instrucoes[1].to_string(), instrucoes[2].to_string()));
-
-                //introduzir validação para garantir que não haja conteudo duplicado no hashmap (julgar necessidade)
-
+                hsmp.insert(id, format!("{}/{}", key.as_str(), value.as_str()));
                 initial_storage.insert(Operation::Operation::new(id, ParserEnum::ParserEnum::SET), &hsmp);
-                file.write(format!("SET {} {}\n", instrucoes[1], instrucoes[2]).as_bytes())?;
+                file.write(format!("SET {} {}\n", key.as_str(), value.as_str()).as_bytes())?;
                 //--seção de persistência
 
                 //--seção de leitura para producao de novos dados por conferencia
@@ -119,31 +86,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         continue;
                     }
 
-                    oprc = dataset_group_operation.iter().find(|f| f.actual_id() == opsel).unwrap().clone();
+                    oprc = dataset_group_operation.iter().find(|f| f.actual_id() == opsel).unwrap();
                     println!("insert new value");
                     std::io::stdin().read_line(&mut new_value_for_hsmp)?;
                 }
 
                 if oprc.actual_id() != 0 {
-                    initial_storage.retrieve_value_from_operation(&oprc.clone(), format!("{}/{}", instrucoes[1], new_value_for_hsmp).as_str());
-                    file.write(format!("SET {} {}\n", instrucoes[1], new_value_for_hsmp).as_bytes())?;
+                    new_value_for_hsmp = new_value_for_hsmp
+                        .trim().to_string();
+                    initial_storage
+                        .retrieve_value_from_operation(&oprc.clone(), format!("{}/{}", key.as_str(), new_value_for_hsmp).as_str());
+                    file.write(format!("SET {} {}\n", key.as_str(), new_value_for_hsmp).as_bytes())?;
                     std::io::stdout().flush()?;
                     continue;
                 }
                 //--seção de leitura para producao de novos dados por conferencia
             }
-            "GET" => {
-                let content = initial_storage.mount_value_for_get_operation(instrucoes[1]);
+            Command::Command::GET {key} => {
+                let content = initial_storage.mount_value_for_get_operation(key.as_str());
                 if content.is_some(){
                     println!("value is fetched: {:?}", content.clone().unwrap());
-                    file.write(format!("GET {} {}\n", instrucoes[1], content.unwrap().split("/").nth(1).unwrap()).as_bytes())?;
+                    file.write(format!("GET {} {}\n", key.as_str(), content.unwrap().split("/")
+                        .nth(1).unwrap()).as_bytes())?;
                 }
             }
-            "DELETE" => {
-                let success = initial_storage.delete_value(instrucoes[1]);
+            Command::Command::DELETE {key} => {
+                let success = initial_storage.delete_value(key.as_str());
                 if success.is_some(){
                     println!("Registry deleted: {:?}", success.clone().unwrap());
-                    file.write(format!("DELETE {} {}\n", instrucoes[1], success.unwrap().split("/").nth(1).unwrap()).as_bytes())?;
+                    file.write(format!("DELETE {} {}\n", key.as_str(), success.unwrap().split("/")
+                        .nth(1).unwrap()).as_bytes())?;
                 }
             }
             _ => {}
