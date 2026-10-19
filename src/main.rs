@@ -1,12 +1,14 @@
+use crate::enums::ParserEnum;
+use crate::model::Operation;
+use model::Storage;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Write};
+use crate::parser::Command;
 
-mod ParserEnum;
-mod Storage;
-mod Operation;
-mod Command;
-mod TypeErrorCommand;
+mod model;
+mod enums;
+mod parser;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 

@@ -1,5 +1,5 @@
+use crate::enums::TypeErrorCommand::TypeErrorCommand;
 use regex::Regex;
-use crate::TypeErrorCommand::TypeErrorCommand;
 
 #[derive(Debug, PartialOrd, PartialEq)]
 pub enum Command{
