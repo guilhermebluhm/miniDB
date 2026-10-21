@@ -4,6 +4,7 @@ use model::Storage;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Write};
+use log::{error, info, warn};
 use crate::parser::Command;
 
 mod model;
@@ -18,6 +19,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .append(true).read(true)
         .open("Data.log")?;
 
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    info!("Initializing initial storage");
+
     let reader = BufReader::new(&file);
     let mut id = 1;
     for (_, line) in reader.lines().enumerate() {
@@ -28,6 +32,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let _ = initial_storage.delete_value(tmp_vl[1]);
             }
             else {
+
+                if !tmp_vl[0].eq("SET") {
+                    warn!("invalid command is not loaded: {:?}", tmp_vl[0]);
+                    continue;
+                }
+
+                if tmp_vl.get(2).is_none(){
+                    warn!("mal-formed command: {:?}", tmp_vl[0]);
+                    continue;
+                }
+
                 let mut hsmp = HashMap::new();
                 hsmp.insert(id, format!("{}/{}", tmp_vl[1].to_string(), tmp_vl[2].to_string()));
                 initial_storage.insert(Operation::Operation::new(id, ParserEnum::ParserEnum::SET), &hsmp);
@@ -37,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     while true {
-        println!("Storage engine. Supported operations: [GET;SET;DELETE]");
+        println!("Storage engine. Supported operations: [GET;SET;DELETE;COMPACT]");
         let mut comando = String::new();
         let _ = std::io::stdin().read_line(&mut comando);
         comando = comando.trim().to_string();
@@ -70,6 +85,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 hsmp.insert(id, format!("{}/{}", key.as_str(), value.as_str()));
                 initial_storage.insert(Operation::Operation::new(id, ParserEnum::ParserEnum::SET), &hsmp);
                 file.write(format!("SET {} {}\n", key.as_str(), value.as_str()).as_bytes())?;
+                file.sync_data()?;
                 //--seção de persistência
 
                 //--seção de leitura para producao de novos dados por conferencia
@@ -99,6 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     initial_storage
                         .retrieve_value_from_operation(&oprc.clone(), format!("{}/{}", key.as_str(), new_value_for_hsmp).as_str());
                     file.write(format!("SET {} {}\n", key.as_str(), new_value_for_hsmp).as_bytes())?;
+                    file.sync_data()?;
                     std::io::stdout().flush()?;
                     continue;
                 }
@@ -110,6 +127,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("value is fetched: {:?}", content.clone().unwrap());
                     file.write(format!("GET {} {}\n", key.as_str(), content.unwrap().split("/")
                         .nth(1).unwrap()).as_bytes())?;
+                    file.sync_data()?;
                 }
             }
             Command::Command::DELETE {key} => {
@@ -118,7 +136,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("Registry deleted: {:?}", success.clone().unwrap());
                     file.write(format!("DELETE {} {}\n", key.as_str(), success.unwrap().split("/")
                         .nth(1).unwrap()).as_bytes())?;
+                    file.sync_data()?;
                 }
+            }
+            Command::Command::COMPACT => {
+                let _ = initial_storage.update_data_log_lastest_values();
+                println!("Compact action");
             }
             _ => {}
         }
