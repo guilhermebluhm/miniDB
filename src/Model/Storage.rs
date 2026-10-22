@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use crate::Operation::Operation;
 use crate::ParserEnum::ParserEnum;
 
@@ -128,19 +128,61 @@ impl Storage{
         println!();
         println!("TESTES INICIAIS DA LOGICA DE REMONTAGEM");
         //primeira experimentacao em montar o ultimo registro da entrada "dse" mais recente
-        for (k, v) in hsmp_tmp.iter().enumerate(){
-            let data = v.1.values().map(|f| f).collect::<Vec<&u32>>();
+        let mut file_tmp:File = File::create("Data_tmp.log").unwrap();
+        for (_, v) in hsmp_tmp.iter().enumerate(){
+
+            let mut straight_update_file = true;
+            let mut qtde_set = 0;
+            let mut qtde_del = 0;
+
+            if v.1.len() > 1 {
+                let data = v.1.iter().map(|f| f).collect::<Vec<(&String, &u32)>>();
+
+                for i in data {
+                    if i.0.contains("SET") {
+                        qtde_set = *i.1;
+                    }
+                    if i.0.contains("DEL") {
+                        qtde_del = *i.1;
+                    }
+                }
+            }
+
+            if v.1.len() > 1 && qtde_set == qtde_del{
+                straight_update_file = false;
+            }
+
             //isso e verdade pois, caso o contador interno do hsmp tmp seja > 1.
             //signica que o KvMap precisa recuperar o ultimo registro
-            if data.len() == 1 && *data[0] > 1{
+            //(mas a logica precisa ser corrigida para abrigar qualquer condicao)
+            //pois aqui está condicionado ao caso de entrada do SET para a chave dse de exemplo que tem apenas um tipo de operacao (data.len == 1)
+            //e a contagem de elementos e maior que 1 *data[0] > 1 pois e para pegar o ultimo registro da mesma chave
+
+            if straight_update_file {
+
+            let mut linha_gravacao = String::new();
                 println!("lendo os dados");
-                //nao esta pegando o ultimo registro (acertar)
                 //TODO: quando pegar o ultimo registro rodar toda a logica que já está montada, após realizar os polimentos
-                let r = self.KvMap.values().map(|f| f.values()).flatten()
-                    .max_by_key(|f| f.split(" ").nth(0).unwrap().contains("dse"));
-                println!("{:?}", r);
+
+                let last_value_for_operation = self.KvMap.values()
+                    .map(|f| f.iter())
+                    .flatten().map(|f| f)
+                    .filter(|f| f.1.contains(v.0)).collect::<Vec<(&u32, &String)>>()
+                    .iter().map(|f| f).max_by_key(|f| f.0).unwrap().1;
+
+                linha_gravacao = format!("{} {} {}", v.1.keys().map(|f| f).collect::<Vec<&String>>()[0],
+                                         last_value_for_operation.split("/").nth(0).unwrap(),
+                                         last_value_for_operation.split("/").nth(1).unwrap());
+
+            if !linha_gravacao.is_empty(){
+                file_tmp.write(linha_gravacao.as_bytes()).unwrap();
+                file_tmp.sync_all().unwrap();
             }
+
+                }
+
         }
+
         Ok(())
     }
 
