@@ -140,7 +140,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             Command::Command::COMPACT => {
-                let _ = initial_storage.update_data_log_lastest_values();
+                file = initial_storage.update_data_log_lastest_values(file)?;
                 println!("Compact action");
             }
             _ => {}
