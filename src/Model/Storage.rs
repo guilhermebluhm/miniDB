@@ -53,6 +53,26 @@ impl Storage{
         
     }
 
+    pub fn search_key_by_prefix(&self, prf: &str) -> () {
+
+        let d =
+            self.KvMap.iter()
+                .map(|f| f.1)
+                .map(|k| k.values())
+                .flatten().collect::<Vec<&String>>()
+                .iter()
+                .filter(|f| f.contains(prf))
+                .cloned().collect::<Vec<&String>>();
+
+        if !d.is_empty(){
+            println!("Find elements");
+        }
+        for (idx, k) in d.iter().enumerate() {
+            println!("pos: {:?} -> val: {:?}", idx, k);
+        }
+
+    }
+
     pub fn mount_value_for_get_operation(&self, value: &str) -> Option<String> {
 
         //melhor caso de O(1)
@@ -61,7 +81,7 @@ impl Storage{
             .flatten().collect::<Vec<&String>>();
 
         for i in raw_values {
-            if i.split("/").nth(0)?.contains(value){
+            if i.split("/").nth(0)?.eq(value){
                 return Some(i.clone());
             }
         }
@@ -69,6 +89,9 @@ impl Storage{
     }
 
     pub fn update_data_log_lastest_values(&mut self, original_file: File) -> Result<File, String> {
+
+        //requer definir os casos de erro para saida graciosa das falhas de logica
+        //por enquanto está gerando panic!
 
         let mut new_insert = false;
         let mut hsmp_tmp:HashMap<String, HashMap<String, u32>> = HashMap::new();

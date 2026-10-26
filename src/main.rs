@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     while true {
-        println!("Storage engine. Supported operations: [GET;SET;DELETE;COMPACT]");
+        println!("Storage engine. Supported operations: [GET;SET;DELETE;PREFIX;COMPACT]");
         let mut comando = String::new();
         let _ = std::io::stdin().read_line(&mut comando);
         comando = comando.trim().to_string();
@@ -139,9 +139,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     file.sync_data()?;
                 }
             }
+            Command::Command::PREFIX{key} => {
+                println!("PREFIXO {:?}", key);
+                initial_storage.search_key_by_prefix(key.as_str());
+            }
             Command::Command::COMPACT => {
                 file = initial_storage.update_data_log_lastest_values(file)?;
-                println!("Compact action");
+            }
+            Command::Command::EXPORT => {
+
             }
             _ => {}
         }
