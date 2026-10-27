@@ -4,7 +4,9 @@ use model::Storage;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Write};
-use log::{error, info, warn};
+use std::path::PathBuf;
+use colored::Colorize;
+use log::{info, warn};
 use crate::parser::Command;
 
 mod model;
@@ -51,9 +53,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    while true {
-        println!("Storage engine. Supported operations: [GET;SET;DELETE;PREFIX;COMPACT]");
+    loop {
+        println!("Storage engine. Supported operations: [GET;SET;DELETE;PREFIX;EXPORT;COMPACT]");
         let mut comando = String::new();
+        let mut dir = std::env::current_dir()?;
         let _ = std::io::stdin().read_line(&mut comando);
         comando = comando.trim().to_string();
 
@@ -148,6 +151,93 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Command::Command::EXPORT => {
 
+                let mut opc = 0;
+                let mut name_file = String::new();
+                let json_type = "1. JSON".green();
+                let csv_type = "2. CSV".blue();
+                let mut type_format_export = String::new();
+
+                println!("{}\n{}", json_type, csv_type);
+                std::io::stdin().read_line(&mut type_format_export)?;
+                opc = type_format_export.trim().parse::<u8>()?;
+                if opc <= 0 || opc > 2 {
+                    println!("invalid op number");
+                }
+                else{
+                    match opc {
+                        1 => {
+                            name_file.push_str("export.json");
+                        }
+                        2 => {
+                            name_file.push_str("export.csv");
+                        }
+                        _ => ()
+                    }
+                }
+
+                loop {
+
+                    let mut inside_dir:Vec<String> = Vec::new();
+                    let mut mount_dir:Vec<String> = Vec::new();
+                    let actual_dir = std::fs::read_dir(dir.as_path())?;
+
+                    println!("Directory navigation");
+                    println!("Actual diretory: {:?}", actual_dir);
+
+
+                    let mut it = 0;
+                    for i in actual_dir{
+                        let entry = i?;
+                        let current_dir = entry.file_type()?;
+                        if current_dir.is_dir(){
+                            println!("pos {:?} -> path: {:?}", it,entry.file_name().to_string_lossy());
+                            inside_dir.push(entry.file_name().to_string_lossy().to_string());
+                            it+=1;
+                        }
+                    }
+
+                    println!("append directory [2-No]");
+                    type_format_export = String::new();
+                    std::io::stdin().read_line(&mut type_format_export)?;
+                    opc = type_format_export.trim().parse::<u8>()?;
+
+                    if opc != 2 {
+                        let directory_to_append = inside_dir.get(opc as usize).unwrap();
+                        println!("value extract and appended: {:?}", directory_to_append);
+                        dir.push(directory_to_append);
+                    }
+
+                    println!("show ancestrors [1-y | 2-stop]");
+                    type_format_export = String::new();
+                    std::io::stdin().read_line(&mut type_format_export)?;
+                    opc = type_format_export.trim().parse::<u8>()?;
+
+                    if opc == 2 {
+                        break;
+                    }
+
+                    if opc == 1 {
+                        println!("Ancestors");
+                        for i in dir.as_path().ancestors().enumerate(){
+                            mount_dir.push(i.1.to_str().unwrap().to_string());
+                            println!("pos {} -> {}", i.0, i.1.to_str().unwrap());
+                        }
+
+                        println!("Change currenct dir ? [99-n]");
+                        type_format_export = String::new();
+                        std::io::stdin().read_line(&mut type_format_export)?;
+                        opc = type_format_export.trim().parse::<u8>()?;
+
+                        if opc != 99 {
+                            dir = PathBuf::from(mount_dir.get(opc as usize).unwrap().as_str());
+                        }
+                    }
+
+                    std::io::stdout().flush()?;
+
+                }
+                dir = dir.join(name_file);
+                println!("dir choose: {:?}", dir.as_path().to_string_lossy());
             }
             _ => {}
         }
