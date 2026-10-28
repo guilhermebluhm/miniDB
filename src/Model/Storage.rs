@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::{rename, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
+use crate::model::KvMapExport::KvMapExport;
 use crate::Operation::Operation;
 use crate::ParserEnum::ParserEnum;
 
@@ -70,6 +71,26 @@ impl Storage{
         for (idx, k) in d.iter().enumerate() {
             println!("pos: {:?} -> val: {:?}", idx, k);
         }
+
+    }
+
+    pub fn mount_all_data_in_memory_for_export(&self) -> Vec<KvMapExport> {
+
+        let mut vec_data_export:Vec<KvMapExport> = Vec::with_capacity(self.KvMap.len());
+
+        let data_memory = self.KvMap.iter()
+            .map(|f| f.1)
+            .map(|f| f.values())
+            .flatten().collect::<Vec<&String>>();
+
+        for i in data_memory{
+            let conj = i.split("/").collect::<Vec<&str>>();
+            if conj.len() > 0{
+                vec_data_export.push(KvMapExport::new(conj[0].to_string(), conj[1].to_string()));
+            }
+        }
+        
+        vec_data_export
 
     }
 

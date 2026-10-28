@@ -2,7 +2,7 @@ use crate::enums::ParserEnum;
 use crate::model::Operation;
 use model::Storage;
 use std::collections::HashMap;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use colored::Colorize;
@@ -238,6 +238,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 dir = dir.join(name_file);
                 println!("dir choose: {:?}", dir.as_path().to_string_lossy());
+                let mut file:File = File::create(&dir)?;
+                let data_for_file = initial_storage.mount_all_data_in_memory_for_export();
+                let json = serde_json::to_string_pretty(&data_for_file)?;
+                file.write(json.as_bytes())?;
+
             }
             _ => {}
         }
