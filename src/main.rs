@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     loop {
-        println!("Storage engine. Supported operations: [GET;SET;DELETE;PREFIX;EXPORT;COMPACT]");
+        println!("Storage engine. Supported operations:\n [GET;SET;DELETE;INCR;DECR;PREFIX;EXPORT;COMPACT]");
         let mut comando = String::new();
         let mut dir = std::env::current_dir()?;
         let _ = std::io::stdin().read_line(&mut comando);
@@ -243,6 +243,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let json = serde_json::to_string_pretty(&data_for_file)?;
                 file.write(json.as_bytes())?;
 
+            }
+            Command::Command::INCR {key} => {
+                let ret = initial_storage.get_value_and_increment(key.as_str(), &mut file, "INCR")
+                    .map_err(|e| e.to_string())?;
+                if ret.eq(&()){
+                    println!("Incr successful");
+                }
+            }
+            Command::Command::DECR {key} => {
+                let ret = initial_storage.get_value_and_increment(key.as_str(), &mut file, "DECR")
+                    .map_err(|e| e.to_string())?;
+                if ret.eq(&()){
+                    println!("Decr successful");
+                }
             }
             _ => {}
         }

@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::{rename, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
+use crate::enums::TypeErrorCommand::TypeErrorCommand;
 use crate::model::KvMapExport::KvMapExport;
 use crate::Operation::Operation;
 use crate::ParserEnum::ParserEnum;
@@ -107,6 +108,29 @@ impl Storage{
             }
         }
         None
+    }
+
+    pub fn get_value_and_increment(&self, v: &str, f: &mut File, op: &str) -> Result<(), TypeErrorCommand> {
+
+        if let Some(x) = self.mount_value_for_get_operation(v){
+            let d = x.split("/").collect::<Vec<&str>>();
+            if d.len() > 1 {
+                let mut value = d[1].parse::<i32>().unwrap_or(0);
+                if value != 0 {
+                    if op.eq("INCR"){
+                        value+=1;
+                    }
+                    else{
+                        value-=1;
+                    }
+                    f.write(format!("\nSET {} {}", d[0], value).as_bytes()).unwrap();
+                    let _ = f.sync_data();
+                    return Ok(());
+                }
+                return Err(TypeErrorCommand::Parser(String::from("Failed value is not integer")));
+            }
+        }
+        Err(TypeErrorCommand::Parser(String::from("Failed to find key")))
     }
 
     pub fn update_data_log_lastest_values(&mut self, original_file: File) -> Result<File, String> {

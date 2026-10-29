@@ -7,6 +7,8 @@ pub enum Command{
     GET {key: String},
     DELETE {key: String},
     PREFIX{key: String},
+    INCR{key: String},
+    DECR{key: String},
     EXPORT,
     COMPACT,
     EXIT
@@ -45,6 +47,12 @@ pub fn ParseCommand(value: &mut String) -> Result<Command, TypeErrorCommand> {
             }
             "EXPORT" => {
                 command = Command::EXPORT
+            }
+            "INCR" => {
+                command = Command::INCR {key: commands.get(1).unwrap().to_string()};
+            }
+            "DECR" => {
+                command = Command::DECR {key: commands.get(1).unwrap().to_string()};
             }
             _ => {}
         }   
